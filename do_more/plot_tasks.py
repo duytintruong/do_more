@@ -40,7 +40,7 @@ class PlottingTasks(object):
         # graphviz consider anything after ":" as port
         name = name.replace(':', '#')
         step = 12
-        num_steps = len(name) // step + 1
+        num_steps = (len(name) - 1) // step + 1
         wrapped_names = [
             name[i * step: (i+1) * step] for i in range(num_steps)]
         return '\n'.join(wrapped_names)
