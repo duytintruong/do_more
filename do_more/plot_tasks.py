@@ -22,14 +22,16 @@ class PlottingTasks(object):
             help='The dodo file name.')
         parser.add_argument(
             '--dot_fn',
-            required=True,
+            required=False,
+            default=None,
             type=str,
             help='The output dot file name.')
         parser.add_argument(
             '--draw_fn',
-            required=True,
+            default=None,
+            required=False,
             type=str,
-            help='The output draw file name.')
+            help='The output drawing file name.')
         arguments = vars(parser.parse_args())
         for key in arguments:
             self.__dict__.update({'_' + key: arguments[key]})
@@ -77,12 +79,21 @@ class PlottingTasks(object):
                 return
             if node_type != 'task':
                 graph.add_node(
-                    node, type=node_type, style='filled', fillcolor='red',
-                    shape='folder')
+                    node, type=node_type,
+                    style='filled',
+                    fillcolor='red',
+                    shape='folder',
+                    fontname='arial',
+                )
             else:
                 graph.add_node(
-                    node, type=node_type, style='filled', fillcolor='green',
-                    shape='doubleoctagon')
+                    node,
+                    type=node_type,
+                    style='filled',
+                    fillcolor='green',
+                    shape='doubleoctagon',
+                    fontname='arial',
+                )
                 task = name_to_task[node]
                 for dep, dep_kws in dep_attributes.items():
                     for dname in getattr(task, dep):
@@ -98,11 +109,16 @@ class PlottingTasks(object):
         return graph
 
     def main(self):
+        if not any((self._dot_fn, self._draw_fn)):
+            print('Either --dot_fn or --draw_fn must be set!')
+            return
         task_list = self._get_task_list()
         nx_graph = self._build_graph(task_list)
         gv_graph = nx.nx_agraph.to_agraph(nx_graph)
-        gv_graph.write(self._dot_fn)
-        gv_graph.draw(self._draw_fn, prog='dot')
+        if self._dot_fn:
+            gv_graph.write(self._dot_fn)
+        if self._draw_fn:
+            gv_graph.draw(self._draw_fn, prog='dot')
 
 
 if __name__ == '__main__':
