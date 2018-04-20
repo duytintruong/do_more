@@ -3,8 +3,7 @@ import inspect
 import importlib
 from doit import loader
 import networkx as nx
-from networkx.drawing.nx_pydot import write_dot
-
+import graphviz
 
 class PlottingTasks(object):
     '''
@@ -26,9 +25,23 @@ class PlottingTasks(object):
             required=True,
             type=str,
             help='The output dot file name.')
+        parser.add_argument(
+            '--draw_fn',
+            required=True,
+            type=str,
+            help='The output draw file name.')
         arguments = vars(parser.parse_args())
         for key in arguments:
             self.__dict__.update({'_' + key: arguments[key]})
+
+    def _wrap_name(self, name):
+        # graphviz consider anything after ":" as port
+        name = name.replace(':', '#')
+        step = 12
+        num_steps = len(name) // step + 1
+        wrapped_names = [
+            name[i * step: (i+1) * step] for i in range(num_steps)]
+        return '\n'.join(wrapped_names)
 
     def _get_task_list(self):
         namespace = importlib.import_module(self._dodo_fn[:-3])
@@ -41,9 +54,10 @@ class PlottingTasks(object):
             loader.load_tasks(members)
             if not task.has_subtask
         )
-        # graphviz consider anything after ":" as port
         for task in task_list:
-            task.name = task.name.replace(':', '#')
+            task.name = self._wrap_name(task.name)
+            task.file_dep = {self._wrap_name(fn) for fn in task.file_dep}
+            task.targets = tuple(self._wrap_name(fn) for fn in task.targets)
         return task_list
 
     def _build_graph(self, task_list):
@@ -63,19 +77,21 @@ class PlottingTasks(object):
                 return
             if node_type != 'task':
                 graph.add_node(
-                    node, type=node_type, style='filled', fillcolor='red')
+                    node, type=node_type, style='filled', fillcolor='red',
+                    shape='folder')
             else:
                 graph.add_node(
-                    node, type=node_type, style='filled', fillcolor='green')
+                    node, type=node_type, style='filled', fillcolor='green',
+                    shape='doubleoctagon')
                 task = name_to_task[node]
                 for dep, dep_kws in dep_attributes.items():
                     for dname in getattr(task, dep):
                         add_graph_node(
                             dname, dep_kws['node_type'])
                         if dep == 'targets':
-                            edge = (dname, node)
-                        else:
                             edge = (node, dname)
+                        else:
+                            edge = (dname, node)
                         graph.add_edge(*edge, type=dep)
         for task_name in name_to_task:
             add_graph_node(task_name, 'task')
@@ -83,8 +99,10 @@ class PlottingTasks(object):
 
     def main(self):
         task_list = self._get_task_list()
-        graph = self._build_graph(task_list)
-        write_dot(graph, self._dot_fn)
+        nx_graph = self._build_graph(task_list)
+        gv_graph = nx.nx_agraph.to_agraph(nx_graph)
+        gv_graph.write(self._dot_fn)
+        gv_graph.draw(self._draw_fn, prog='dot')
 
 
 if __name__ == '__main__':
